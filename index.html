@@ -1,0 +1,253 @@
+---
+---
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Kappa Theta Tau Family</title>
+
+    <script src="{% link assets/cytoscape.min.js %}"></script>
+    <script src="{% link assets/dagre.js %}"></script>
+    <script src="{% link assets/cola.min.js %}"></script>
+    <script src="{% link assets/cytoscape-dagre.js %}"></script>
+    <script src="{% link assets/cytoscape-cola.js %}"></script>
+</head>
+
+<body>
+<span style="position:absolute; left:0; top:0; z-index: 1;">
+    <button onclick="exportpng()">Save Image</button>
+</span>
+<span style="position:absolute; right:0; top:0; z-index: 1;">
+    <!-- TODO: implement this https://www.w3schools.com/howto/howto_js_filter_lists.asp -->
+    <button onclick="alert('todo :)')">Search</button>
+    <input type="search">
+</span>
+
+<div id="cy" style="width: 100%; height: 100%; z-index:0;"></div>
+</body>
+
+<script>
+    function exportpng() {
+        const blob = cy.png({
+            output: 'blob',
+            full: true,
+            scale: 2,
+        });
+
+        const link = document.createElement("a");
+        link.href = URL.createObjectURL(blob);
+        link.download = "TT family tree.png";
+        link.click();
+    }
+
+    const year = new Date().getFullYear();
+    const cy = cytoscape({
+        container: document.getElementById('cy'),
+
+        elements: [
+            // {% for row in site.data.TREE %}
+            {
+                data: {
+                    id: '{{ row["name"] }}',
+                    pledge_class: parseInt('{{ row["pledge_class"] }}'),
+                    person: true
+                }
+            },
+            // {% if row["parent1"] and row["parent2"] %}
+            {data: {id: '{{ row["parent1"] }}_{{ row["parent2"] }}_{{ row["name"] }}', intermediary: true}},
+            {
+                data: {
+                    id: '{{ row["parent1"] }}_{{ row["parent1"] }}_{{ row["parent2"] }}_{{ row["name"] }}',
+                    source: '{{ row["parent1"] }}',
+                    target: '{{ row["parent1"] }}_{{ row["parent2"] }}_{{ row["name"] }}',
+                    intermediary: true
+                }
+            },
+            {
+                data: {
+                    id: '{{ row["parent2"] }}_{{ row["parent1"] }}_{{ row["parent2"] }}_{{ row["name"] }}',
+                    source: '{{ row["parent2"] }}',
+                    target: '{{ row["parent1"] }}_{{ row["parent2"] }}_{{ row["name"] }}',
+                    intermediary: true
+                }
+            },
+            {
+                data: {
+                    id: '{{ row["parent1"] }}_{{ row["parent2"] }}_{{ row["name"] }}_{{ row["name"] }}',
+                    source: '{{ row["parent1"] }}_{{ row["parent2"] }}_{{ row["name"] }}',
+                    target: '{{ row["name"] }}',
+                }
+            },
+            // {% elsif row["parent1"] %}
+            {
+                data: {
+                    id: '{{ row["parent1"] }}_{{ row["name"] }}',
+                    source: '{{ row["parent1"] }}',
+                    target: '{{ row["name"] }}',
+                }
+            },
+            // {% elsif row["parent2"] %}
+            {
+                data: {
+                    id: '{{ row["parent2"] }}_{{ row["name"] }}',
+                    source: '{{ row["parent2"] }}',
+                    target: '{{ row["name"] }}',
+                }
+            },
+            // {% endif %}
+            // {% endfor %}
+        ],
+
+        style: [ // the stylesheet for the graph
+            {
+                selector: 'node[?person]',
+                style: {
+                    // 'background-color': 'mapData(pledge_class, {{ "now" | date: "%Y" | minus: 10 }}, {{ "now" | date: "%Y" }}, #fd4444, #fbc547)',
+                    'background-color': (ele) => 'hsl(' + (year - ele.data('pledge_class')) * 36 + ',90%,70%)',
+                    'background-opacity': 0.85,
+                    'border-color': '#7f0102',
+                    'border-width': 2,
+
+                    'text-wrap': 'wrap',
+                    'label': (ele) => ele.data('id') + '\n(' + ele.data('pledge_class') + ')',
+                    'text-halign': 'center',
+                    'text-valign': 'center',
+
+                    'shape': 'round-rectangle',
+                    'width': 100,
+                    'height': 50
+                }
+            }, {
+                selector: 'node[?intermediary]',
+                style: {
+                    'background-color': '#888',
+                    'width': 5, 'height': 5
+                }
+            },
+
+
+            {
+                selector: 'edge',
+                style: {
+                    'width': 3,
+                    'line-color': '#aaa',
+                    'target-arrow-shape': 'triangle-backcurve',
+                    'target-arrow-color': '#7f0102',
+                    'curve-style': 'bezier',
+                    // 'curve-style': 'unbundled-bezier',
+                }
+            }, {
+                selector: 'edge[?intermediary]',
+                style: {
+                    'width': 2,
+                    'line-color': '#bbb',
+                    'target-arrow-shape': 'none',
+                }
+            },
+
+
+            {
+                selector: ':parent',
+                style: {
+                    'z-compound-depth': 'auto',
+                    'background-opacity': 0.975,
+                    'border-opacity': 0.975,
+                    'border-color': '#7f0102',
+                    'border-width': 3
+                }
+            }, {
+                selector: '.below',
+                style: {
+                    'z-compound-depth': 'bottom',
+                    'background-opacity': 0.5,
+                    'border-opacity': 0.5,
+                    'background-blacken': -0.6,
+                    'border-width': 1,
+                    'line-color': '#ccc',
+                }
+            },
+
+
+            {
+                // selector: 'node[?person]:selected',
+                selector: 'node:selected',
+                style: {
+                    'background-opacity': 1,
+                    'background-blacken': -0.8,
+                    'border-opacity': 1,
+
+                    'border-width': 3,
+                    'border-style': 'double',
+                }
+            },
+        ],
+    });
+
+    const familyCola = {
+        name: 'cola', // https://github.com/cytoscape/cytoscape.js-cola#api
+        maxSimulationTime: 2000,
+        flow: {axis: 'y', minSeparation: 200},
+        unconstrIter: 10,
+        userConstIter: 5,
+        allConstIter: 2,
+    };
+    cy.makeLayout(Object.assign({}, familyCola, {
+        maxSimulationTime: 4000,
+        unconstrIter: 100,
+        userConstIter: 50,
+        allConstIter: 25,
+    })).run();
+
+    const familyDagre = {
+        name: 'dagre', // https://github.com/cytoscape/cytoscape.js-dagre#api
+        animate: true,
+        animationDuration: 1000,
+        minLen: function (edge) {
+            return edge.data('intermediary') ? 0 : 1
+        },
+        edgeWeight: function (edge) {
+            return edge.data('intermediary') ? 2 : 1
+        },
+    };
+
+    const inspectN = 7;
+    let family = {
+        data: {id: 'family'}
+    };
+    cy.on('tap', function (event) {
+        function resetFamily() {
+            cy.nodes().move({
+                parent: null
+            });
+            cy.remove('#family');
+            cy.elements().removeClass('below');
+        }
+
+        function countPeople(eles) {
+            return eles.filter((e) => e.data('person')).length;
+        }
+
+        if (event.target.data('parent') === 'family' || event.target.data('id') === 'family') {
+            // noop
+        } else if (event.target.data('intermediary') === true) {
+            // noop
+        } else if (event.target.group && event.target.group() === 'nodes') {
+            resetFamily();
+
+            let familyEles = event.target;
+            for (let i = 0; i < inspectN && countPeople(familyEles) < inspectN; i++) {
+                familyEles = familyEles.neighborhood().add(familyEles);
+            }
+
+            familyEles.makeLayout(familyDagre).run();
+
+            cy.filter((e) => !familyEles.includes(e)).addClass('below');
+            cy.add(family);
+            familyEles.move({parent: 'family'});
+        } else if (cy.$('#family').length > 0) {
+            resetFamily();
+            cy.makeLayout(familyCola).run();
+        }
+    });
+</script>
+
+</html>
